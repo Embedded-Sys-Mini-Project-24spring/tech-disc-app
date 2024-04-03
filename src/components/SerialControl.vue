@@ -18,6 +18,14 @@ import {
   type ChartData
 } from 'chart.js'
 
+import {
+  AmbientLight,
+  Camera,
+  GltfModel,
+  Renderer,
+  Scene,
+} from 'troisjs';
+
 ChartJS.register(
   CategoryScale,
   LinearScale,
@@ -233,6 +241,10 @@ function open_close() {
     port_open.value = !port_open.value;
 }
 
+
+const rendererC = ref()
+const model_path = import.meta.env.BASE_URL + "/assets/models/mpu_6050_free_download.glb"
+
 </script>
 
 <template>
@@ -246,12 +258,21 @@ function open_close() {
     <Textarea v-model="messages_str" rows="20" cols="90" disabled/>
     <div class="card">
         <Line :data="chartData" :options="chartOptions" />
-        <!-- <Chart type="line" :data="chartData" :options="chartOptions" class="h-30rem" /> -->
     </div>
     <div class="card">
         <Line :data="chartData_gyro" :options="chartOptions" />
-        <!-- <Chart type="line" :data="chartData" :options="chartOptions" class="h-30rem" /> -->
     </div>
-
+    <div class="card">
+      <Renderer ref="rendererC" antialias :orbit-ctrl="{ enableDamping: true }" 
+      resize="window"
+      >
+        <Camera :position="{ z: 10 }" />
+        <Scene>
+          <AmbientLight></AmbientLight>
+          <!-- <PointLight :position="{ y: 50, z: 50 }" /> -->
+          <GltfModel :src="model_path" />
+        </Scene>
+      </Renderer>
+    </div>
 </template>
 
