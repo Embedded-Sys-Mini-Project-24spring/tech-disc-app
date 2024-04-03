@@ -229,8 +229,8 @@ function open_close() {
 
 <template>
     <div class="card flex justify-content-center">
-        <Dropdown v-model="baud_rate" :options="baud_rates" placeholder="Select a baud rate" class="w-full md:w-14rem" />
-        <Button v-bind:label="port_open_str" @click="open_close"/>
+        Baud Rate: <Dropdown v-model="baud_rate" :options="baud_rates" placeholder="Select a baud rate" class="w-full md:w-14rem" />
+         <Button v-bind:label="port_open_str" @click="open_close"/>
     </div>
     <div class="card">
         <p>Temperature: {{celsius.toFixed(2)}} °C</p>
