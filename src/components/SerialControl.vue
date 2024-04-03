@@ -47,6 +47,14 @@ const messages = ref<Array<String>>([])
 const messages_str = computed(() => {return messages.value.toString()}) 
 const re_acc = /accel_xout:(-?[0-9]+).;accel_yout:(-?[0-9]+).;accel_zout:(-?[0-9]+).;gyro_xout:(-?[0-9]+).;gyro_yout:(-?[0-9]+).;gyro_zout:(-?[0-9]+).;temp:(-?[0-9]+).;cnt:([0-9]+)/;
 
+function reading_16bit_to_range(reading: number) {
+    return reading / (32_767 + (reading >= 0? 0: 1))
+}
+
+function readings_to_float(reading: string) {
+    return reading_16bit_to_range(Number(reading))
+}
+
 function update_chartData() {
 }
 const chartData = ref<ChartData<'line'>>({
@@ -101,12 +109,12 @@ const handleSerialEvent = (ev) => {
         // console.log(ev.detail);
         const match = ev.detail.match(re_acc);
 
-        accel_x.value.push(Number(match[1]))
-        accel_y.value.push(Number(match[2]))
-        accel_z.value.push(Number(match[3]))
-        gyro_x.value.push(Number(match[4]))
-        gyro_y.value.push(Number(match[5]))
-        gyro_z.value.push(Number(match[6]))
+        accel_x.value.push(readings_to_float(match[1]))
+        accel_y.value.push(readings_to_float(match[2]))
+        accel_z.value.push(readings_to_float(match[3]))
+        gyro_x.value.push(readings_to_float(match[4]))
+        gyro_y.value.push(readings_to_float(match[5]))
+        gyro_z.value.push(readings_to_float(match[6]))
         temperature.value = Number(match[7])
         cnt.value.push(Number(match[8]))
         const diff = cnt.value.length - MAX_LEN;
