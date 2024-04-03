@@ -20,10 +20,13 @@ import {
 
 import {
   AmbientLight,
+  PointLight,
   Camera,
   GltfModel,
   Renderer,
   Scene,
+  Object3D,
+  type RendererPublicInterface
 } from 'troisjs';
 
 ChartJS.register(
@@ -38,14 +41,14 @@ ChartJS.register(
 
 const serial = new SerialMonitor({mode: "text", parseLines: true});
 
-const accel_x = ref<Array<Number>>([])
-const accel_y = ref<Array<Number>>([])
-const accel_z = ref<Array<Number>>([])
+const accel_x = ref<Array<number>>([])
+const accel_y = ref<Array<number>>([])
+const accel_z = ref<Array<number>>([])
 
 
-const gyro_x = ref<Array<Number>>([])
-const gyro_y = ref<Array<Number>>([])
-const gyro_z = ref<Array<Number>>([])
+const gyro_x = ref<Array<number>>([])
+const gyro_y = ref<Array<number>>([])
+const gyro_z = ref<Array<number>>([])
 
 const temperature = ref<number>(NaN);
 const celsius = computed(() => temperature.value / 340 + 36.53)
@@ -62,6 +65,7 @@ function reading_16bit_to_range(reading: number) {
 function readings_to_float(reading: string) {
     return reading_16bit_to_range(Number(reading))
 }
+
 
 function update_chartData() {
 }
@@ -179,9 +183,20 @@ const baud_rates = ref([9600, 19200, 38400, 57600, 115200]);
 const port_open = ref(false)
 const port_open_str = computed(() => {return port_open.value? "close": "open"})
 
+function calculate_angles() {
+    if (accel_x.value.length >= 1) {
+        const index = accel_x.value.length - 1;
+        const acc_x = accel_x.value[index]
+        const acc_y = accel_y.value[index]
+        const acc_z = accel_z.value[index]
 
-onMounted(() => {
-});
+        const roll = Math.atan(acc_y / Math.sqrt(acc_x ** 2 + acc_z ** 2))
+        const pitch = Math.atan(-acc_x / Math.sqrt(acc_y ** 2 + acc_z ** 2))
+        return [roll, pitch]
+    } else {
+        return [0, 0]
+    }
+}
 
         
 
@@ -244,6 +259,23 @@ function open_close() {
 
 const rendererC = ref()
 const model_path = import.meta.env.BASE_URL + "/assets/models/mpu_6050_free_download.glb"
+const model_ref = ref()
+function onLoad(obj) {
+    const model = obj.scene;
+    model_ref.value = model;
+}
+
+onMounted(() => {
+  const renderer = rendererC.value as RendererPublicInterface
+  renderer.onBeforeRender(() => {
+      if (model_ref.value != null) {
+        const [roll, pitch ] = calculate_angles()
+          console.log(`roll: ${roll} pitch: ${pitch}`)
+        model_ref.value.rotation.x = roll
+        model_ref.value.rotation.z = -pitch
+      }
+  })
+});
 
 </script>
 
@@ -264,13 +296,13 @@ const model_path = import.meta.env.BASE_URL + "/assets/models/mpu_6050_free_down
     </div>
     <div class="card">
       <Renderer ref="rendererC" antialias :orbit-ctrl="{ enableDamping: true }" 
-      resize="window"
+      resize="true"
       >
         <Camera :position="{ z: 10 }" />
         <Scene>
           <AmbientLight></AmbientLight>
-          <!-- <PointLight :position="{ y: 50, z: 50 }" /> -->
-          <GltfModel :src="model_path" />
+          <PointLight :position="{ x: 10, y: 10, z: 10 }" />
+          <GltfModel :src="model_path" @load="onLoad"/>
         </Scene>
       </Renderer>
     </div>
