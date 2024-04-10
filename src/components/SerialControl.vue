@@ -66,9 +66,6 @@ function readings_to_float(reading: string) {
     return reading_16bit_to_range(Number(reading))
 }
 
-
-function update_chartData() {
-}
 const chartData = ref<ChartData<'line'>>({
         datasets: [
         ]
@@ -277,17 +274,53 @@ onMounted(() => {
   })
 });
 
+function on_open(event) {
+      console.log(event);
+      console.log("Successfully connected to the echo websocket server...");
+};
+
+
+const source = ref("serial")
+const sources = ref(["serial", "ws"])
+const url = ref("localhost")
+let socket;
+
+function on_message(event) {
+      console.log("look, I got something from server");
+      console.log(event.data);
+      socket.send(1)
+};
+
+function open_close_ws() {
+    if (port_open.value) {
+        socket.close()
+    } else {
+        socket = new WebSocket("wss://" + url.value);
+        socket.onmessage = on_message
+        socket.onopen = on_open
+    }
+    port_open.value = !port_open.value;
+}
+
 </script>
 
 <template>
     <div class="card flex justify-content-center">
+        Source: <Dropdown v-model="source" :options="sources" placeholder="Select a data source" class="w-full md:w-14rem" />
+    </div>
+
+    <div v-if="source == 'serial'" class="card flex justify-content-center">
         Baud Rate: <Dropdown v-model="baud_rate" :options="baud_rates" placeholder="Select a baud rate" class="w-full md:w-14rem" />
          <Button v-bind:label="port_open_str" @click="open_close"/>
+    </div>
+    <div v-if="source == 'ws'" class="card flex justify-content-center">
+        URL: <Textarea v-model="url" autoResize rows="1" cols="16" />
+         <Button v-bind:label="port_open_str" @click="open_close_ws"/>
     </div>
     <div class="card">
         <p>Temperature: {{celsius.toFixed(2)}} °C</p>
     </div>
-    <Textarea v-model="messages_str" rows="20" cols="90" disabled/>
+    <Textarea v-model="messages_str" rows="10" cols="70" disabled/>
     <div class="card">
         <Line :data="chartData" :options="chartOptions" />
     </div>
