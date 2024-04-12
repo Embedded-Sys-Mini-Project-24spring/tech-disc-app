@@ -106,14 +106,19 @@ const setChartData = (label, ac_x, ac_y, ac_z, label_x, label_y, label_z) => {
     };
 };
 
-const handleSerialEvent = (ev) => {
-    
-    const MAX_LEN = 1000;
-    messages.value.push(ev.detail);
+const MAX_LEN = 1000;
+
+function truncate_msgs() {
     const diff_messages = messages.value.length - MAX_LEN;
     if (diff_messages > 0) {
         messages.value.splice(0, diff_messages)
     }
+}
+
+const handleSerialEvent = (ev) => {
+    
+    messages.value.push(ev.detail);
+    truncate_msgs()
     if (re_acc.test(ev.detail)) {
         // console.log(ev.detail);
         const match = ev.detail.match(re_acc);
@@ -282,20 +287,22 @@ function on_open(event) {
 
 const source = ref("serial")
 const sources = ref(["serial", "ws"])
-const url = ref("localhost")
+const url = ref("192.168.4.1/ws")
 let socket;
 
 function on_message(event) {
       console.log("look, I got something from server");
       console.log(event.data);
-      socket.send(1)
+      messages.value.push(event.data);
+      truncate_msgs()
+      socket.send("dfsdfd\n")
 };
 
 function open_close_ws() {
     if (port_open.value) {
         socket.close()
     } else {
-        socket = new WebSocket("wss://" + url.value);
+        socket = new WebSocket("ws://" + url.value);
         socket.onmessage = on_message
         socket.onopen = on_open
     }
