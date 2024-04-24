@@ -1,8 +1,10 @@
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue' 
+import { ref, computed, onMounted, onUpdated} from 'vue' 
 import Dropdown from 'primevue/dropdown';
 import Button from 'primevue/button';
 import Textarea from 'primevue/textarea';
+import InputText from 'primevue/inputtext';
+import FloatLabel from 'primevue/floatlabel';
 import SerialMonitor from '@ridge18/web-serial-monitor';
 //import Chart from 'primevue/chart';
 import { Line } from 'vue-chartjs'
@@ -50,20 +52,27 @@ const gyro_x = ref<Array<number>>([])
 const gyro_y = ref<Array<number>>([])
 const gyro_z = ref<Array<number>>([])
 
+const angle_xs = ref<Array<number>>([])
+const angle_ys = ref<Array<number>>([])
+const angle_zs = ref<Array<number>>([])
+
 const temperature = ref<number>(NaN);
-const celsius = computed(() => temperature.value / 340 + 36.53)
+const celsius = computed(() => temperature.value)
 const cnt = ref<Array<Number>>([])
+const rpm = ref(0)
 
 const messages = ref<Array<String>>([])
-const messages_str = computed(() => {return messages.value.toString()}) 
-const re_acc = /accel_xout:(-?[0-9]+).;accel_yout:(-?[0-9]+).;accel_zout:(-?[0-9]+).;gyro_xout:(-?[0-9]+).;gyro_yout:(-?[0-9]+).;gyro_zout:(-?[0-9]+).;temp:(-?[0-9]+).;cnt:([0-9]+)/;
+const messages_str = computed(() => {return messages.value.join("\n")}) 
+const regex_float = /[+-]?\d+(\.\d+)?/
+const re_acc = /accel_xout:([+-]?\d+(\.\d+)?).;accel_yout:([+-]?\d+(\.\d+)?).;accel_zout:([+-]?\d+(\.\d+)?).;gyro_xout:([+-]?\d+(\.\d+)?).;gyro_yout:([+-]?\d+(\.\d+)?).;gyro_zout:([+-]?\d+(\.\d+)?).;temp:([+-]?\d+(\.\d+)?).;cnt:([0-9]+).;angle_x:([+-]?\d+(\.\d+)?).;angle_y:([+-]?\d+(\.\d+)?).;rpm:([+-]?\d+(\.\d+)?)/;
 
 function reading_16bit_to_range(reading: number) {
     return reading / (32_767 + (reading >= 0? 0: 1))
 }
 
 function readings_to_float(reading: string) {
-    return reading_16bit_to_range(Number(reading))
+    return Number(reading)
+    // return reading_16bit_to_range(Number(reading))
 }
 
 const chartData = ref<ChartData<'line'>>({
@@ -72,6 +81,11 @@ const chartData = ref<ChartData<'line'>>({
     });
 
 const chartData_gyro = ref<ChartData<'line'>>({
+        datasets: [
+        ]
+    });
+
+const chartData_angle = ref<ChartData<'line'>>({
         datasets: [
         ]
     });
@@ -115,22 +129,32 @@ function truncate_msgs() {
     }
 }
 
-const handleSerialEvent = (ev) => {
-    
-    messages.value.push(ev.detail);
+const process_message = (msg) => {
+
+    messages.value.push(msg);
     truncate_msgs()
-    if (re_acc.test(ev.detail)) {
+    if (re_acc.test(msg)) {
         // console.log(ev.detail);
-        const match = ev.detail.match(re_acc);
+        const match = msg.match(re_acc);
 
         accel_x.value.push(readings_to_float(match[1]))
-        accel_y.value.push(readings_to_float(match[2]))
-        accel_z.value.push(readings_to_float(match[3]))
-        gyro_x.value.push(readings_to_float(match[4]))
-        gyro_y.value.push(readings_to_float(match[5]))
-        gyro_z.value.push(readings_to_float(match[6]))
-        temperature.value = Number(match[7])
-        cnt.value.push(Number(match[8]))
+        accel_y.value.push(readings_to_float(match[3]))
+        accel_z.value.push(readings_to_float(match[5]))
+        gyro_x.value.push(readings_to_float(match[7]))
+        gyro_y.value.push(readings_to_float(match[9]))
+        gyro_z.value.push(readings_to_float(match[11]))
+        temperature.value = Number(match[13])
+        cnt.value.push(Number(match[15]))
+        let angle_x = readings_to_float(match[16])
+        let angle_y = readings_to_float(match[18])
+        let angle_z = readings_to_float(match[18])
+        let rpm_val = readings_to_float(match[20])
+        rpm.value = rpm_val
+
+        angle_xs.value.push(angle_x)
+        angle_ys.value.push(angle_y)
+        angle_zs.value.push(angle_z)
+
         const diff = cnt.value.length - MAX_LEN;
         if (diff > 0) {
             accel_x.value.splice(0, diff)
@@ -140,6 +164,9 @@ const handleSerialEvent = (ev) => {
             gyro_y.value.splice(0, diff)
             gyro_z.value.splice(0, diff)
             cnt.value.splice(0, diff)
+            angle_xs.value.splice(0, diff)
+            angle_ys.value.splice(0, diff)
+            angle_zs.value.splice(0, diff)
         }
 
         const span = 100
@@ -162,12 +189,25 @@ const handleSerialEvent = (ev) => {
             "gyro_y",
             "gyro_z"
         )
-        //console.log(chartData.value)
+
+        chartData_angle.value = setChartData(
+            cnt.value.slice(-span), 
+            angle_xs.value.slice(-span),
+            angle_ys.value.slice(-span),
+            angle_zs.value.slice(-span),
+            "angle_x",
+            "angle_y",
+            "angle_z"
+        )
+        // console.log(chartData.value)
         //console.log("match: " + match[1].toString() + " " + match[2].toString())
     } else {
         console.log("No match");
     }
+}
 
+const handleSerialEvent = (ev) => {
+    process_message(ev.detail)
 }
 
 serial.addEventListener('serial-connected', handleSerialEvent);
@@ -267,6 +307,13 @@ function onLoad(obj) {
     model_ref.value = model;
 }
 
+onUpdated(() => {
+  let textarea = document.getElementById('ta')
+    if (textarea != null) {
+        textarea.scrollTop = textarea.scrollHeight
+    }
+})
+
 onMounted(() => {
   const renderer = rendererC.value as RendererPublicInterface
   renderer.onBeforeRender(() => {
@@ -290,12 +337,13 @@ const sources = ref(["serial", "ws"])
 const url = ref("192.168.4.1/ws")
 let socket;
 
+const cmd = ref("")
+
 function on_message(event) {
-      console.log("look, I got something from server");
+      // console.log("look, I got something from server");
       console.log(event.data);
-      messages.value.push(event.data);
-      truncate_msgs()
-      socket.send("dfsdfd\n")
+      process_message(event.data)
+      // socket.send("dfsdfd\n")
 };
 
 function open_close_ws() {
@@ -309,9 +357,24 @@ function open_close_ws() {
     port_open.value = !port_open.value;
 }
 
+function send_msg() {
+    let msg = cmd.value
+    console.log(msg)
+    messages.value.push("> " + msg);
+    if (port_open.value) {
+        if (source.value == 'ws') {
+            socket.send(msg)
+        } else if (source.value == 'serial') {
+            serial.send(msg + "\n");
+        }
+    }
+    cmd.value = ""
+}
+
 </script>
 
 <template>
+    <div class="flex flex-column gap-6">
     <div class="card flex justify-content-center">
         Source: <Dropdown v-model="source" :options="sources" placeholder="Select a data source" class="w-full md:w-14rem" />
     </div>
@@ -324,15 +387,25 @@ function open_close_ws() {
         URL: <Textarea v-model="url" autoResize rows="1" cols="16" />
          <Button v-bind:label="port_open_str" @click="open_close_ws"/>
     </div>
+    <Textarea id="ta" v-model="messages_str" rows="10" cols="70" disabled/>
+    <div class="card flex justify-content-center">
+        <FloatLabel>
+            <InputText id="CMD" v-model="cmd" @keyup.enter="send_msg"/>
+            <label for="CMD">CMD</label>
+        </FloatLabel>
+    </div>
     <div class="card">
         <p>Temperature: {{celsius.toFixed(2)}} °C</p>
+        <p>RPM: {{rpm.toFixed(2)}}</p>
     </div>
-    <Textarea v-model="messages_str" rows="10" cols="70" disabled/>
     <div class="card">
         <Line :data="chartData" :options="chartOptions" />
     </div>
     <div class="card">
         <Line :data="chartData_gyro" :options="chartOptions" />
+    </div>
+    <div class="card">
+        <Line :data="chartData_angle" :options="chartOptions" />
     </div>
     <div class="card">
       <Renderer ref="rendererC" antialias :orbit-ctrl="{ enableDamping: true }" 
@@ -345,6 +418,7 @@ function open_close_ws() {
           <GltfModel :src="model_path" @load="onLoad"/>
         </Scene>
       </Renderer>
+    </div>
     </div>
 </template>
 
