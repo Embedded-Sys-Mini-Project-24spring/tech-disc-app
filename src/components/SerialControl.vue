@@ -120,7 +120,7 @@ const setChartData = (label, ac_x, ac_y, ac_z, label_x, label_y, label_z) => {
     };
 };
 
-const MAX_LEN = 1000;
+const MAX_LEN = 500;
 
 function truncate_msgs() {
     const diff_messages = messages.value.length - MAX_LEN;
