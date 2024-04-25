@@ -1,6 +1,8 @@
 # tech-disc-app
 
-This template should help get you started developing with Vue 3 in Vite.
+The client side app for interfacing with the [tech-disc](https://github.com/Embedded-Sys-Mini-Project-24spring/esp32-techdisc) project. 
+
+It communicates with the ESP32-S2 devkit through WebSerial(wired) or Websocket(Wireless).
 
 ## Recommended IDE Setup
 
